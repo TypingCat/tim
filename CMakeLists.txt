@@ -10,20 +10,35 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 
-add_executable(sender src/sender.cpp)
-target_include_directories(sender PUBLIC
+# node: publisher
+add_executable(publisher src/publisher.cpp)
+target_include_directories(publisher PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_compile_features(sender PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+target_compile_features(publisher PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 ament_target_dependencies(
-  sender
+  publisher
   "rclcpp"
   "std_msgs"
 )
-
-install(TARGETS sender
+install(TARGETS publisher
   DESTINATION lib/${PROJECT_NAME})
 
+# node: subscriber
+add_executable(subscriber src/subscriber.cpp)
+target_include_directories(subscriber PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_compile_features(subscriber PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+ament_target_dependencies(
+  subscriber
+  "rclcpp"
+  "std_msgs"
+)
+install(TARGETS subscriber
+  DESTINATION lib/${PROJECT_NAME})
+
+# test
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
