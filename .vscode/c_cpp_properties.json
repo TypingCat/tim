@@ -8,7 +8,7 @@
             "includePath": [
                 "/opt/ros/humble/include/**",
                 "/usr/include/**",
-                "~/ros/src/**"
+                "~/ros/**"
             ],
             "name": "ROS",
             "intelliSenseMode": "gcc-x64",

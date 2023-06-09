@@ -10,7 +10,23 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 
-# node: publisher
+find_package(rosidl_default_generators REQUIRED)
+find_package(tim REQUIRED)
+
+# generate messages
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/TravelerInformationMessage.msg"
+  "msg/TravelerDataFrame.msg"
+  "msg/RegionalExtension.msg"
+  "msg/Object.msg"
+  "msg/Node.msg"
+  "msg/Action.msg"
+  "msg/Prediction.msg"
+  DEPENDENCIES std_msgs
+)
+
+# add nodes
+## publisher
 add_executable(publisher src/publisher.cpp)
 target_include_directories(publisher PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -20,11 +36,12 @@ ament_target_dependencies(
   publisher
   "rclcpp"
   "std_msgs"
+  "tim"
 )
 install(TARGETS publisher
   DESTINATION lib/${PROJECT_NAME})
 
-# node: subscriber
+## subscriber
 add_executable(subscriber src/subscriber.cpp)
 target_include_directories(subscriber PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -34,6 +51,7 @@ ament_target_dependencies(
   subscriber
   "rclcpp"
   "std_msgs"
+  "tim"
 )
 install(TARGETS subscriber
   DESTINATION lib/${PROJECT_NAME})

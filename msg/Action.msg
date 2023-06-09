@@ -1,0 +1,2 @@
+uint8 action
+uint8 action_classification_score
