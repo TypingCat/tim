@@ -2,6 +2,7 @@
 
 #include <tim/msg/traveler_information_message.hpp>
 #include <visualization_msgs/msg/marker.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 
 using std::placeholders::_1;
 
@@ -18,8 +19,8 @@ public:
 			10,
             std::bind(&Vehicle::tim_callback, this, _1)
 		);
-		marker_publisher = this->create_publisher<visualization_msgs::msg::Marker>(
-			"marker_vehicle",
+		markers_publisher = this->create_publisher<visualization_msgs::msg::MarkerArray>(
+			"markers_vehicle",
 			10
 		);
 	}
@@ -34,9 +35,9 @@ private:
     {
         update_objects(tim);
 
-        auto marker = generate_marker();
+        auto markers = generate_marker();
 
-        marker_publisher->publish(marker);
+        markers_publisher->publish(markers);
     }
 
 	void update_objects(tim::msg::TravelerInformationMessage)
@@ -44,17 +45,17 @@ private:
         //
     }
 
-    visualization_msgs::msg::Marker generate_marker()
+    visualization_msgs::msg::MarkerArray generate_marker()
     {
-        auto marker = visualization_msgs::msg::Marker();
+        auto markers = visualization_msgs::msg::MarkerArray();
 
         //
 
-        return marker;
+        return markers;
     }
 
 	rclcpp::Subscription<tim::msg::TravelerInformationMessage>::SharedPtr obu;
-	rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_publisher;
+	rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr markers_publisher;
 	rclcpp::TimerBase::SharedPtr timer;
 };
 
