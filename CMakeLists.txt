@@ -9,6 +9,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 
 find_package(rosidl_default_generators REQUIRED)
 find_package(tim REQUIRED)
@@ -26,34 +27,34 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 )
 
 # add nodes
-## publisher
-add_executable(publisher src/publisher.cpp)
-target_include_directories(publisher PUBLIC
+## infra
+add_executable(infra src/infra.cpp)
+target_include_directories(infra PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_compile_features(publisher PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+target_compile_features(infra PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 ament_target_dependencies(
-  publisher
+  infra
   "rclcpp"
-  "std_msgs"
   "tim"
+  "visualization_msgs"
 )
-install(TARGETS publisher
+install(TARGETS infra
   DESTINATION lib/${PROJECT_NAME})
 
-## subscriber
-add_executable(subscriber src/subscriber.cpp)
-target_include_directories(subscriber PUBLIC
+## vehicle
+add_executable(vehicle src/vehicle.cpp)
+target_include_directories(vehicle PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_compile_features(subscriber PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+target_compile_features(vehicle PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 ament_target_dependencies(
-  subscriber
+  vehicle
   "rclcpp"
-  "std_msgs"
   "tim"
+  "visualization_msgs"
 )
-install(TARGETS subscriber
+install(TARGETS vehicle
   DESTINATION lib/${PROJECT_NAME})
 
 # test
