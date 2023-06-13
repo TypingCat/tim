@@ -13,5 +13,6 @@ end
 OBU -->|TIM| RSU
 
 rviz((rviz))
-OBU & RSU -.->|marker| rviz
+OBU -.->|marker_infra| rviz
+RSU -.->|marker_vehicle| rviz
 ```

@@ -8,6 +8,7 @@
 #include <random>
 #include <tuple>
 #include <vector>
+#include <string>
 
 using namespace std::chrono_literals;
 
@@ -25,14 +26,14 @@ public:
 		std::normal_distribution<double> dist(0, 1);
 
 		// Initialize object states
-		footprint_radius_ = 2.5*dist(gen) + 0.5;
-		footprint_shape_ = M_PI/4.*dist(gen);
-
-		orbital_center_x_ = 20.*dist(gen) - 10.;
-		orbital_center_y_ = 20.*dist(gen) - 10.;
-		orbital_radius_ = 300.*dist(gen) - 150.;
+		footprint_radius_ = 2.*dist(gen) + 1.;
+		footprint_shape_ = M_PI/32.*dist(gen) + M_PI/8.;
+		
+		orbital_center_x_ = 10.*dist(gen) - 5.;
+		orbital_center_y_ = 10.*dist(gen) - 5.;
+		orbital_radius_ = 20.*dist(gen) - 10.;
 		orbital_position_ = 6.28*dist(gen);
-		orbital_velocity_ = 2.*dist(gen) - 1.;
+		orbital_velocity_ = 0.05*dist(gen) + 0.1;
 	}
 
 	void update(float dt)
@@ -94,7 +95,7 @@ public:
 		id_ = id;
 
 		// Initialize observation
-		for (int i=0; i<10; ++i) {
+		for (int i=0; i<20; ++i) {
 			auto object = Object(i);
 			observation_.push_back(object);
 		}
@@ -109,7 +110,7 @@ public:
 			10
 		);
 		timer = this->create_wall_timer(
-			500ms,
+			100ms,
 			std::bind(&Infra::timer_callback, this)
 		);
 	}
@@ -118,16 +119,21 @@ private:
 	void timer_callback()
 	{
 		// Simulate objects
-        for (Object & object : observation_) {
+        for (Object & object: observation_) {
 			object.update(0.5);
 		}
 
 		// Generate messages
 		auto tim = generate_tim(observation_);
-		auto markers = generate_markers(tim);
+		auto tim_visualization = generate_markers(tim);
 
+		// Publish messages
 		rsu->publish(tim);
-		markers_publisher->publish(markers);
+		markers_publisher->publish(tim_visualization);
+
+		if (count_%10 == 0) {
+			RCLCPP_INFO(this->get_logger(), "%d TIM published", count_);
+		}
 	}
 
 	// Reference:
@@ -168,13 +174,13 @@ private:
 				regional_extension.set__time_stamp( int(time.nanoseconds()/60)%60 );
 				regional_extension.set__processing_time(0);
 				regional_extension.set__edge_id(id_);
-				regional_extension.set__edge_coordinate_system(0);
+				regional_extension.set__edge_coordinate_system(5186);	// [EPSG]
 				regional_extension.set__edge_x(pos_x_);
 				regional_extension.set__edge_y(pos_y_);
 				
 				// 3.2. Objects
 				regional_extension.set__num_objects(observation.size());
-				for (Object & observed_object : observation_) {
+				for (Object & observed_object: observation_) {
 					float x, y, Y;
 					std::vector< std::tuple<float, float> > footprint;
 					std::tie(x, y, Y, footprint) = observed_object.get_states();
@@ -188,7 +194,7 @@ private:
 					object.set__velocity_x( 0./0.02 );				// [m --> 0.02m]
 					object.set__velocity_y( 0./0.02 );				// [m --> 0.02m]
 					object.set__footprint_num_nodes(4);
-					for (std::tuple<float, float> & node : footprint) {
+					for (std::tuple<float, float> & node: footprint) {
 						tim::msg::Node n;
 						n.set__x( std::get<0>(node)*100. );			// [m --> cm]
 						n.set__y( std::get<1>(node)*100. );			// [m --> cm]
@@ -234,13 +240,68 @@ private:
 		return tim;
 	}
 
-	visualization_msgs::msg::MarkerArray generate_markers(tim::msg::TravelerInformationMessage tim)
+	visualization_msgs::msg::MarkerArray generate_markers(tim::msg::TravelerInformationMessage & tim)
 	{
-		auto markers = visualization_msgs::msg::MarkerArray();
+		auto regional = tim.regionals[0];
+		auto tim_visualization = visualization_msgs::msg::MarkerArray();
+		auto coordinate_system = std::to_string(regional.edge_coordinate_system);
+		
+		// 3.1. Edge
+		float edge_height = 5.;
+		visualization_msgs::msg::Marker edge_marker;
+		{
+			edge_marker.header.set__frame_id(coordinate_system);
+			edge_marker.set__id(regional.edge_id);
+			edge_marker.pose.position.set__x(regional.edge_x);	// [m]
+			edge_marker.pose.position.set__y(regional.edge_y);	// [m]
+			edge_marker.pose.position.set__z(edge_height/2.);	// offset[m]
+			
+			edge_marker.set__ns("edge");
+			edge_marker.set__type(visualization_msgs::msg::Marker::CYLINDER);
+			edge_marker.set__action(visualization_msgs::msg::Marker::MODIFY);
+			edge_marker.scale.set__x(0.4);
+			edge_marker.scale.set__y(0.4);
+			edge_marker.scale.set__z(edge_height);
+			edge_marker.color.set__a(0.5);
+			edge_marker.color.set__r(1.);
+			edge_marker.color.set__g(0.);
+			edge_marker.color.set__b(0.);			
+		}
 
-        //
+		tim_visualization.markers.push_back(edge_marker);
 
-        return markers;
+		// 3.2. Objects
+		for (const auto & object: regional.objects) {
+			visualization_msgs::msg::Marker object_marker;
+
+			object_marker.header.set__frame_id(coordinate_system);
+			object_marker.set__id(object.id);
+			for (const auto & node: object.footprint_nodes) {
+				geometry_msgs::msg::Point point;
+				point.set__x( node.x/100. );	// [cm --> m]
+				point.set__y( node.y/100. );	// [cm --> m]
+				object_marker.points.push_back(point);
+			}
+			{
+				geometry_msgs::msg::Point point;
+				point.set__x( object.footprint_nodes[0].x/100. );	// [cm --> m]
+				point.set__y( object.footprint_nodes[0].y/100. );	// [cm --> m]
+				object_marker.points.push_back(point);
+			}
+			
+			object_marker.set__ns("object");
+			object_marker.set__type(visualization_msgs::msg::Marker::LINE_STRIP);
+			object_marker.set__action(visualization_msgs::msg::Marker::MODIFY);
+			object_marker.scale.set__x(0.1);
+			object_marker.color.set__a(0.5);
+			object_marker.color.set__r(1.);
+			object_marker.color.set__g(0.);
+			object_marker.color.set__b(0.);	
+
+			tim_visualization.markers.push_back(object_marker);
+		}
+
+        return tim_visualization;
 	}
 
 	rclcpp::Publisher<tim::msg::TravelerInformationMessage>::SharedPtr rsu;
