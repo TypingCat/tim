@@ -16,13 +16,19 @@ find_package(tim REQUIRED)
 
 # generate messages
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "msg/TravelerInformationMessage.msg"
-  "msg/TravelerDataFrame.msg"
-  "msg/RegionalExtension.msg"
-  "msg/Object.msg"
-  "msg/Node.msg"
   "msg/Action.msg"
+  "msg/Edge.msg"
+  "msg/Footprint.msg"
+  "msg/GeographicalPath.msg"
+  "msg/Node.msg"
+  "msg/Object.msg"
+  "msg/Pose.msg"
   "msg/Prediction.msg"
+  "msg/RegionalExtension.msg"
+  "msg/TrajectoryForecasting.msg"
+  "msg/TravelerDataFrame.msg"
+  "msg/TravelerInformationMessage.msg"
+  "msg/Velocity.msg"
   DEPENDENCIES std_msgs
 )
 

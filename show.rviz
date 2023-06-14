@@ -4,7 +4,6 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
-        - /Grid1
         - /MarkerArray1/Status1
       Splitter Ratio: 0.5
     Tree Height: 1079
@@ -45,6 +44,13 @@ Visualization Manager:
         Z: 0
       Plane: XY
       Plane Cell Count: 10
+      Reference Frame: <Fixed Frame>
+      Value: true
+    - Class: rviz_default_plugins/Axes
+      Enabled: true
+      Length: 2
+      Name: Axes
+      Radius: 0.10000000149011612
       Reference Frame: <Fixed Frame>
       Value: true
     - Class: rviz_default_plugins/MarkerArray

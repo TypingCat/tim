@@ -1,2 +1,2 @@
-int16 x
-int16 y
+int16 x     # [cm]
+int16 y     # [cm]
