@@ -32,7 +32,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   DEPENDENCIES std_msgs
 )
 
-# add nodes
+# build
 ## infra
 add_executable(infra src/infra.cpp)
 target_include_directories(infra PUBLIC
