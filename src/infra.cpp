@@ -10,6 +10,7 @@
 #include <vector>
 #include <string>
 
+#include "tim.hpp"
 #include "object.hpp"
 
 using namespace std::chrono_literals;
@@ -95,7 +96,7 @@ private:
 			traveler_data_frame.set__not_used1(0);
 			tim::msg::GeographicalPath region; {
 				region.set__anchor_lat(0);		// [1/10th microdegree]
-				region.set__anchor_long(0);		// [1/10th microdegree]
+				region.set__anchor_lon(0);		// [1/10th microdegree]
 			}
 			traveler_data_frame.regions.push_back(region);
 

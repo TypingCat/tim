@@ -8,6 +8,7 @@
 #include <random>
 #include <string>
 
+#include "tim.hpp"
 #include "object.hpp"
 
 using namespace std::chrono_literals;

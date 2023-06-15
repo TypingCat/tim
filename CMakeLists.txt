@@ -33,6 +33,15 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 )
 
 # build
+## tim
+add_library(TIM src/tim.cpp)
+target_include_directories(TIM PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_compile_features(TIM PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+install(TARGETS TIM
+  DESTINATION lib/${PROJECT_NAME})
+
 ## infra
 add_executable(infra src/infra.cpp)
 target_include_directories(infra PUBLIC
@@ -45,6 +54,7 @@ ament_target_dependencies(
   "tim"
   "visualization_msgs"
 )
+target_link_libraries(infra TIM)
 install(TARGETS infra
   DESTINATION lib/${PROJECT_NAME})
 
@@ -60,6 +70,7 @@ ament_target_dependencies(
   "tim"
   "visualization_msgs"
 )
+target_link_libraries(vehicle TIM)
 install(TARGETS vehicle
   DESTINATION lib/${PROJECT_NAME})
 
