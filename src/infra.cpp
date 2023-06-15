@@ -61,7 +61,7 @@ private:
 			visualization.markers.push_back(edge_marker);
 
 			for (auto & object: tim.regionals[0].objects) {
-				auto object_marker = extract_object_marker(object, tim.regionals[0].edge);
+				auto object_marker = extract_object_marker(tim.regionals[0].edge, object);
 				visualization.markers.push_back(object_marker);
 			}
 		}
@@ -133,8 +133,8 @@ private:
 
 						// 3.2.1. State					
 						object.set__id( observed_object.get_id() );
-						object.pose.set__x( x*100. );						// [m --> cm]
-						object.pose.set__y( y*100. );						// [m --> cm]
+						object.pose.set__x( dx*100. );						// [m --> cm]
+						object.pose.set__y( dy*100. );						// [m --> cm]
 						object.pose.set__angle( Y*180./M_PI/0.0125 );		// [rad --> 0.0125deg]
 						object.velocity.set__x( 0./0.02 );					// [m --> 0.02m]
 						object.velocity.set__y( 0./0.02 );					// [m --> 0.02m]
@@ -209,8 +209,8 @@ private:
 	}
 
 	visualization_msgs::msg::Marker extract_object_marker(
-		tim::msg::Object & object,
-		tim::msg::Edge & edge)
+		tim::msg::Edge & edge,
+		tim::msg::Object & object)
 	{
 		visualization_msgs::msg::Marker object_marker;
 

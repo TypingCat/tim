@@ -10,9 +10,9 @@ end
 subgraph Vehicle
     RSU
 end
-OBU -->|TIM| RSU
+OBU -->|tim| RSU
 
 rviz((rviz))
-OBU -.->|marker_infra| rviz
-RSU -.->|marker_vehicle| rviz
+OBU -.->|infra_markers| rviz
+RSU -.->|vehicle_markers| rviz
 ```

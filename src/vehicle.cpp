@@ -48,16 +48,16 @@ private:
 			auto vehicle_marker = extract_vehicle_marker(this);
 			visualization.markers.push_back(vehicle_marker);
 
-			// if (observation_.size() != 0) {
-			// 	auto edge = observation_.back().regionals[0].edge;
+			if (observation_.size() != 0) {
+				auto edge = observation_.back().regionals[0].edge;
 
-			// 	for (auto & object: observation_.back().regionals[0].objects) {
-			// 		auto perception_marker = extract_perception_marker(object, edge, this);
-			// 		visualization.markers.push_back(perception_marker);
-			// 	}
+				for (auto & object: observation_.back().regionals[0].objects) {
+					auto perception_marker = extract_perception_marker(edge, object, this);
+					visualization.markers.push_back(perception_marker);
+				}
 
-			// 	observation_.clear();
-			// }
+				observation_.clear();
+			}
 		}
 		markers_publisher->publish(visualization);
 	}
@@ -104,8 +104,8 @@ private:
     }
 
 	visualization_msgs::msg::Marker extract_perception_marker(
-		tim::msg::Object & object,
 		tim::msg::Edge & edge,
+		tim::msg::Object & object,
 		Vehicle * vehicle)
     {
 		float x, y, Y;
@@ -116,13 +116,13 @@ private:
 			perception_marker.header.set__frame_id( std::to_string(vehicle->coordinate_system_) );
 			perception_marker.set__id(object.id);
 			geometry_msgs::msg::Point vehicle_point; {
-				vehicle_point.set__x(x);
-				vehicle_point.set__y(y);
+				vehicle_point.set__x(x);								// [m]
+				vehicle_point.set__y(y);								// [m]
 			}
 			perception_marker.points.push_back(vehicle_point);
 			geometry_msgs::msg::Point object_point; {
-				object_point.set__x( object.pose.x/100. + edge.x );
-				object_point.set__y( object.pose.y/100. + edge.y );
+				object_point.set__x( object.pose.x/100. + edge.x );		// [cm --> m] & offset
+				object_point.set__y( object.pose.y/100. + edge.y );		// [cm --> m] & offset
 			}
 			perception_marker.points.push_back(object_point);
 
@@ -130,7 +130,7 @@ private:
 			perception_marker.set__type(visualization_msgs::msg::Marker::LINE_LIST);
 			perception_marker.set__action(visualization_msgs::msg::Marker::MODIFY);
 			perception_marker.scale.set__x(0.1);
-			perception_marker.color.set__a(0.5);
+			perception_marker.color.set__a(0.2);
 			perception_marker.color.set__r(0.);
 			perception_marker.color.set__g(1.);	// GREEN for vehicles
 			perception_marker.color.set__b(0.);
