@@ -52,136 +52,112 @@ private:
 			object.update(dt_);
 		}
 
-		// Generate messages
-		auto tim = generate_tim(observation_);
-		rsu->publish(tim);
+		// Broadcast TIM
+		TIM tim;
+		write(tim, observation_);
+			// remove undetected objects
+		auto tim_rosmsg = tim.to_rosmsg();
+		rsu->publish(tim_rosmsg);
 
-		// Visualization
-		auto visualization = visualization_msgs::msg::MarkerArray(); {
-			auto edge_marker = extract_edge_marker(tim.regionals[0]);
-			visualization.markers.push_back(edge_marker);
+		// Visualize TIM
+		auto tim_rviz = tim.to_rviz();
+		markers_publisher->publish(tim_rviz);
+		
+		// auto visualization = visualization_msgs::msg::MarkerArray(); {
+		// 	auto edge_marker = extract_edge_marker(tim.regionals[0]);
+		// 	visualization.markers.push_back(edge_marker);
 
-			for (auto & object: tim.regionals[0].objects) {
-				auto object_marker = extract_object_marker(tim.regionals[0].edge, object);
-				visualization.markers.push_back(object_marker);
-			}
-		}
-		markers_publisher->publish(visualization);
+		// 	for (auto & object: tim.regionals[0].objects) {
+		// 		auto object_marker = extract_object_marker(tim.regionals[0].edge, object);
+		// 		visualization.markers.push_back(object_marker);
+		// 	}
+		// }
+		// markers_publisher->publish(visualization);
 
-		if (count_%10 == 0) {
-			RCLCPP_INFO(this->get_logger(), "TIM %d published", count_);
-		}
+		// if (count_%10 == 0) {
+		// 	RCLCPP_INFO(this->get_logger(), "TIM %d published", count_);
+		// }
 	}
-
-	// Reference:
-	// Communication Protocal Design Specification for Connected Autonomous Driving Service Edge AI v0.5
-	tim::msg::TravelerInformationMessage generate_tim(const std::vector<Object> & observation)
+	
+	void write(TIM & tim, const std::vector<Object> & observation)
 	{
-		auto tim = tim::msg::TravelerInformationMessage(); {
-			auto time = this->get_clock()->now();
+		auto time = this->get_clock()->now();
 
-			// 1. Message count
-			tim.msg_cnt = count_++;
-			
-			// 2. Data frame
-			tim::msg::TravelerDataFrame traveler_data_frame;
+		// 1. Message count
+		tim.msgCnt = count_++;
 
-			traveler_data_frame.set__not_used(0);
-			traveler_data_frame.set__frame_type(1);
-			traveler_data_frame.set__msg_id(0);
-			traveler_data_frame.set__start_time( int(time.seconds()/60)%60 );	// [minutes]
-			traveler_data_frame.set__duration_time(1.);							// [minutes]
-			traveler_data_frame.set__priority(0);
+		// 2. Data frame
+		tim.data_frames[0].start_time = uint32_t(time.seconds()/60)%60;		// [minutes]
+		tim.data_frames[0].duration_time = uint16_t(1);						// [minutes]
 
-			traveler_data_frame.set__not_used1(0);
-			tim::msg::GeographicalPath region; {
-				region.set__anchor_lat(0);		// [1/10th microdegree]
-				region.set__anchor_lon(0);		// [1/10th microdegree]
-			}
-			traveler_data_frame.regions.push_back(region);
+		// 3. Regional
+		// 3.1. Edge
+		tim.regionals[0].time_stamp = uint16_t(time.nanoseconds()/60)%60;	// [milliseconds]
+		tim.regionals[0].processing_time = uint16_t(1);						// [milliseconds]
+		tim.regionals[0].edge.id = uint32_t(id_);
+		tim.regionals[0].edge.coordinate_system = uint16_t(5186);
+		tim.regionals[0].edge.x = _Float64(pos_x_);
+		tim.regionals[0].edge.y = _Float64(pos_y_);
 
-			traveler_data_frame.set__not_used2(0);
-			traveler_data_frame.set__not_used3(0);
-			traveler_data_frame.set__content(0);
+		// 3.2. Objects
+		tim.regionals[0].num_objects = uint8_t(observation.size());
 
-			tim.data_frames.push_back(traveler_data_frame);
+		for (Object & object: observation_) {
+			float x, y, Y;
+			std::vector< std::tuple<float, float> > footprint;
+			std::tie(x, y, Y, footprint) = object.get_states();
+			float dx = x - pos_x_;
+			float dy = y - pos_y_;
+			float dist = sqrt(pow(dx, 2) + pow(dy, 2));
 
-			// 3. Regional
-			tim::msg::RegionalExtension regional_extension; {
+			Tim::Object tim_object; {
 
-				// 3.1. Edge
-				regional_extension.set__time_stamp( int(time.nanoseconds()/60)%60 );	// [milliseconds]
-				regional_extension.set__processing_time(0);								// [milliseconds]
-				tim::msg::Edge edge; {
-					edge.set__id(id_);
-					edge.set__coordinate_system(5186);						// EPSG
-					edge.set__x(pos_x_);									// [m]
-					edge.set__y(pos_y_);									// [m]
+				// 3.2.1. State
+				tim_object.id = uint32_t(object.get_id());
+				tim_object.pose.x = int16_t(dx*100.);					// [m --> cm]
+				tim_object.pose.y = int16_t(dy*100.);					// [m --> cm]
+				tim_object.pose.angle = uint16_t(Y*180./M_PI/0.0125);	// [rad --> 0.0125deg]
+				tim_object.velocity.x = int16_t(0./0.02);				// [m --> 0.02m]
+				tim_object.velocity.y = int16_t(0./0.02);				// [m --> 0.02m]
+
+				tim_object.footprint.num_nodes = uint8_t(footprint.size());
+				for (std::tuple<float, float> & node: footprint) {
+					Tim::Node tim_node;					
+					tim_node.x = int16_t((std::get<0>(node) - pos_x_)*100.);	// [m --> cm]
+					tim_node.y = int16_t((std::get<1>(node) - pos_y_)*100.);	// [m --> cm]							
+					tim_object.footprint.nodes.push_back(tim_node);
 				}
-				regional_extension.set__edge(edge);
-				
-				// 3.2. Objects
-				regional_extension.set__num_objects(observation.size());
-				for (Object & observed_object: observation_) {
-					float x, y, Y;
-					std::vector< std::tuple<float, float> > footprint;
-					std::tie(x, y, Y, footprint) = observed_object.get_states();
-					float dx = x - edge.x;
-					float dy = y - edge.y;
-					float dist = sqrt(pow(dx, 2) + pow(dy, 2));
-					
-					tim::msg::Object object; {
 
-						// 3.2.1. State					
-						object.set__id( observed_object.get_id() );
-						object.pose.set__x( dx*100. );						// [m --> cm]
-						object.pose.set__y( dy*100. );						// [m --> cm]
-						object.pose.set__angle( Y*180./M_PI/0.0125 );		// [rad --> 0.0125deg]
-						object.velocity.set__x( 0./0.02 );					// [m --> 0.02m]
-						object.velocity.set__y( 0./0.02 );					// [m --> 0.02m]
+				// 3.2.2. Classification
+				tim_object.object = uint8_t(	// OBJECT_CAR for detected, OBJECT_UNKNOWN for undetected
+					dist < detection_range_ ? Tim::OBJECT::CAR : Tim::OBJECT::UNKNOWN);
+				tim_object.object_classification_score = uint8_t(90);
+				tim_object.location = uint8_t(Tim::LOCATION::CARLANE);
+				tim_object.location_classification_score = uint8_t(90);
+				tim_object.num_actions = uint8_t(1);
+				Tim::Action tim_action; {
+					tim_action.action = uint8_t(Tim::ACTION::MOVING);
+					tim_action.action_classification_score = uint8_t(90);
+				}
+				tim_object.actions.push_back(tim_action);
 
-						object.footprint.set__num_nodes(4);
-						for (std::tuple<float, float> & node: footprint) {
-							tim::msg::Node n;
-							n.set__x( (std::get<0>(node) - edge.x)*100. );	// [m --> cm]
-							n.set__y( (std::get<1>(node) - edge.y)*100. );	// [m --> cm]							
-							object.footprint.nodes.push_back(n);
-						}
-
-						// 3.2.2. Classification					
-						object.set__object(	// OBJECT_CAR for detected, OBJECT_UNKNOWN for undetected
-							dist < detection_range_ ? tim::msg::Object::OBJECT_CAR : tim::msg::Object::OBJECT_UNKNOWN);					
-						object.set__object_classification_score(90);
-						object.set__location(tim::msg::Object::LOCATION_CARLANE);
-						object.set__location_classification_score(90);
-						object.set__num_actions(1);
-						tim::msg::Action action; {
-							action.set__action(tim::msg::Action::MOVING);
-							action.set__action_classification_score(90);
-						}
-						object.actions.push_back(action);
-
-						// 3.2.3. Trajectory forecasting
-						object.trajectory_forecasting.set__prediction_horizon(0);
-						object.trajectory_forecasting.set__sampling_period(0);
-						object.trajectory_forecasting.set__num_predictions(1);
-						tim::msg::Prediction prediction; {
-							prediction.set__num_nodes(1);
-							tim::msg::Node node; {
-								node.set__x(object.pose.x);		// [cm]
-								node.set__y(object.pose.y);		// [cm]
-							}
-							prediction.nodes.push_back(node);
-						}
-						object.trajectory_forecasting.predictions.push_back(prediction);
-						object.set__trajectory_forecasting_score(90);
+				// 3.2.3. Trajectory forecasting
+				tim_object.trajectory_forecasting.prediction_horizon = uint16_t(0);	// [milliseconds]
+				tim_object.trajectory_forecasting.sampling_period = uint16_t(0);	// [milliseconds]
+				tim_object.trajectory_forecasting.num_predictions = uint8_t(1);
+				Tim::Prediction tim_prediction; {				// First prediction for current pose
+					tim_prediction.num_nodes = uint8_t(1);
+					Tim::Node tim_node; {
+						tim_node.x = int16_t(tim_object.pose.x);	// [cm]
+						tim_node.y = int16_t(tim_object.pose.y);	// [cm]
 					}
-					regional_extension.objects.push_back(object);
+					tim_prediction.nodes.push_back(tim_node);
 				}
+				tim_object.trajectory_forecasting.predictions.push_back(tim_prediction);
+				tim_object.trajectory_forecasting_score = uint8_t(90);
 			}
-			tim.regionals.push_back(regional_extension);
+			tim.regionals[0].objects.push_back(tim_object);
 		}
-		return tim;
 	}
 
 	visualization_msgs::msg::Marker extract_edge_marker(tim::msg::RegionalExtension & regional)

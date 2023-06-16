@@ -1,6 +1,10 @@
 #include <iostream>
 #include <vector>
 
+#include <tim/msg/traveler_information_message.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+
 // Components of TIM
 namespace Tim {
     class GeographicalPath
@@ -17,11 +21,7 @@ namespace Tim {
     class TravelerDataFrame
     {
     public:
-        TravelerDataFrame()
-        {
-            GeographicalPath anchor;
-            regions.push_back(anchor);
-        }
+        TravelerDataFrame();
 
         // Part I, Frame header
         uint8_t not_used{ 0 };
@@ -161,7 +161,7 @@ namespace Tim {
         Edge edge;
 
         // 3.2. Objects
-        uint8_t num_objects;
+        uint8_t num_objects{ 0 };
         std::vector<Object> objects;
     };
 
@@ -213,18 +213,12 @@ namespace Tim {
 class TIM
 {
 public:
-    TIM(uint8_t id=0)
-    {
-        msgCnt = id;
+    TIM();
 
-        Tim::TravelerDataFrame traveler_data_frame;
-        data_frames.push_back(traveler_data_frame);
-
-        Tim::RegionalExtension regional_extension;
-        regionals.push_back(regional_extension);
-    }
-
-    uint8_t msgCnt;
+    tim::msg::TravelerInformationMessage to_rosmsg();
+    visualization_msgs::msg::MarkerArray to_rviz();
+    
+    uint8_t msgCnt{ 0 };
     std::vector<Tim::TravelerDataFrame> data_frames;
     std::vector<Tim::RegionalExtension> regionals;
 };
