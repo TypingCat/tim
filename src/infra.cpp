@@ -55,28 +55,17 @@ private:
 		// Broadcast TIM
 		TIM tim;
 		write(tim, observation_);
-			// remove undetected objects
+
 		auto tim_rosmsg = tim.to_rosmsg();
 		rsu->publish(tim_rosmsg);
 
 		// Visualize TIM
 		auto tim_rviz = tim.to_rviz();
 		markers_publisher->publish(tim_rviz);
-		
-		// auto visualization = visualization_msgs::msg::MarkerArray(); {
-		// 	auto edge_marker = extract_edge_marker(tim.regionals[0]);
-		// 	visualization.markers.push_back(edge_marker);
 
-		// 	for (auto & object: tim.regionals[0].objects) {
-		// 		auto object_marker = extract_object_marker(tim.regionals[0].edge, object);
-		// 		visualization.markers.push_back(object_marker);
-		// 	}
-		// }
-		// markers_publisher->publish(visualization);
-
-		// if (count_%10 == 0) {
-		// 	RCLCPP_INFO(this->get_logger(), "TIM %d published", count_);
-		// }
+		if (count_%10 == 0) {
+			RCLCPP_INFO(this->get_logger(), "TIM %d published", count_);
+		}
 	}
 	
 	void write(TIM & tim, const std::vector<Object> & observation)
@@ -145,7 +134,7 @@ private:
 				tim_object.trajectory_forecasting.prediction_horizon = uint16_t(0);	// [milliseconds]
 				tim_object.trajectory_forecasting.sampling_period = uint16_t(0);	// [milliseconds]
 				tim_object.trajectory_forecasting.num_predictions = uint8_t(1);
-				Tim::Prediction tim_prediction; {				// First prediction for current pose
+				Tim::Prediction tim_prediction; {					// First prediction for current pose
 					tim_prediction.num_nodes = uint8_t(1);
 					Tim::Node tim_node; {
 						tim_node.x = int16_t(tim_object.pose.x);	// [cm]
@@ -158,71 +147,6 @@ private:
 			}
 			tim.regionals[0].objects.push_back(tim_object);
 		}
-	}
-
-	visualization_msgs::msg::Marker extract_edge_marker(tim::msg::RegionalExtension & regional)
-	{
-		float edge_height = 5.;
-
-		visualization_msgs::msg::Marker edge_marker; {
-			edge_marker.header.set__frame_id( std::to_string(regional.edge.coordinate_system) );
-			edge_marker.set__id(regional.edge.id);
-			edge_marker.pose.position.set__x(regional.edge.x);	// [m]
-			edge_marker.pose.position.set__y(regional.edge.y);	// [m]
-			edge_marker.pose.position.set__z(edge_height/2.);	// offset
-			
-			edge_marker.set__ns("edge");
-			edge_marker.set__type(visualization_msgs::msg::Marker::CYLINDER);
-			edge_marker.set__action(visualization_msgs::msg::Marker::MODIFY);
-			edge_marker.scale.set__x(0.4);
-			edge_marker.scale.set__y(0.4);
-			edge_marker.scale.set__z(edge_height);
-			edge_marker.color.set__a(0.5);
-			edge_marker.color.set__r(1.);
-			edge_marker.color.set__g(0.);
-			edge_marker.color.set__b(0.);
-		}
-		return edge_marker;
-	}
-
-	visualization_msgs::msg::Marker extract_object_marker(
-		tim::msg::Edge & edge,
-		tim::msg::Object & object)
-	{
-		visualization_msgs::msg::Marker object_marker;
-
-		object_marker.header.set__frame_id( std::to_string(edge.coordinate_system) );
-		object_marker.set__id(object.id);
-		for (const auto & node: object.footprint.nodes) {
-			geometry_msgs::msg::Point point;
-			point.set__x( node.x/100. + edge.x );						// [cm --> m] & offset
-			point.set__y( node.y/100. + edge.y );						// [cm --> m] & offset
-			object_marker.points.push_back(point);
-		} {
-			geometry_msgs::msg::Point point;
-			point.set__x( object.footprint.nodes[0].x/100. + edge.x );	// [cm --> m] & offset
-			point.set__y( object.footprint.nodes[0].y/100. + edge.y );	// [cm --> m] & offset
-			object_marker.points.push_back(point);
-		}
-		
-		object_marker.set__ns("object");
-		object_marker.set__type(visualization_msgs::msg::Marker::LINE_STRIP);
-		object_marker.set__action(visualization_msgs::msg::Marker::MODIFY);
-		object_marker.scale.set__x(0.1);
-		if (object.object == tim::msg::Object::OBJECT_UNKNOWN) {		// BLUE for undetected objects
-			object_marker.color.set__a(0.5);
-			object_marker.color.set__r(0.);
-			object_marker.color.set__g(0.);
-			object_marker.color.set__b(1.);
-		}
-		else {															// RED for detected objects
-			object_marker.color.set__a(0.5);
-			object_marker.color.set__r(1.);
-			object_marker.color.set__g(0.);
-			object_marker.color.set__b(0.);
-		}			
-
-		return object_marker;
 	}
 
 	rclcpp::Publisher<tim::msg::TravelerInformationMessage>::SharedPtr rsu;

@@ -6,6 +6,7 @@ Tim::TravelerDataFrame::TravelerDataFrame()
     regions.push_back(anchor);
 }
 
+// Create empty TIM
 TIM::TIM()
 {
     Tim::TravelerDataFrame traveler_data_frame;
@@ -15,6 +16,7 @@ TIM::TIM()
     regionals.push_back(regional_extension);
 }
 
+// Convert TIM to ROS message
 tim::msg::TravelerInformationMessage TIM::to_rosmsg()
 {
     auto rosmsg = tim::msg::TravelerInformationMessage(); {
@@ -73,9 +75,10 @@ tim::msg::TravelerInformationMessage TIM::to_rosmsg()
 
                     rosmsg_object.footprint.set__num_nodes(object.footprint.num_nodes);
                     for (Tim::Node & node: object.footprint.nodes) {
-                        tim::msg::Node rosmsg_node;
-                        rosmsg_node.set__x(node.x);	    // [cm]
-                        rosmsg_node.set__y(node.y);	    // [cm]							
+                        tim::msg::Node rosmsg_node; {
+                            rosmsg_node.set__x(node.x);	    // [cm]
+                            rosmsg_node.set__y(node.y);	    // [cm]
+                        }
                         rosmsg_object.footprint.nodes.push_back(rosmsg_node);
                     }
 
@@ -102,8 +105,8 @@ tim::msg::TravelerInformationMessage TIM::to_rosmsg()
                             rosmsg_prediction.set__num_nodes(prediction.num_nodes);
                             for (Tim::Node & node: prediction.nodes) {
                                 tim::msg::Node rosmsg_node; {
-                                    rosmsg_node.set__x(rosmsg_object.pose.x);	// [cm]
-                                    rosmsg_node.set__y(rosmsg_object.pose.y);	// [cm]
+                                    rosmsg_node.set__x(node.x);	// [cm]
+                                    rosmsg_node.set__y(node.y);	// [cm]
                                 }
                                 rosmsg_prediction.nodes.push_back(rosmsg_node);
                             }
@@ -121,15 +124,70 @@ tim::msg::TravelerInformationMessage TIM::to_rosmsg()
     return rosmsg;
 }
 
+// Convert TIM to Rviz message
 visualization_msgs::msg::MarkerArray TIM::to_rviz()
 {
-    auto marker_array = visualization_msgs::msg::MarkerArray(); {
+    float edge_height = 5.;
 
+    auto rviz = visualization_msgs::msg::MarkerArray(); {
+    
         // Edge
+		visualization_msgs::msg::Marker edge_marker; {
+			edge_marker.header.set__frame_id(std::to_string(regionals[0].edge.coordinate_system));
+			edge_marker.set__id(regionals[0].edge.id);
+			edge_marker.pose.position.set__x(regionals[0].edge.x);	// [m]
+			edge_marker.pose.position.set__y(regionals[0].edge.y);	// [m]
+			edge_marker.pose.position.set__z(edge_height/2.);	    // offset
+			
+			edge_marker.set__ns("edge");
+			edge_marker.set__type(visualization_msgs::msg::Marker::CYLINDER);
+			edge_marker.set__action(visualization_msgs::msg::Marker::MODIFY);
+			edge_marker.scale.set__x(0.4);
+			edge_marker.scale.set__y(0.4);
+			edge_marker.scale.set__z(edge_height);
+			edge_marker.color.set__a(0.5);
+			edge_marker.color.set__r(1.);
+			edge_marker.color.set__g(0.);
+			edge_marker.color.set__b(0.);
+		}
+        rviz.markers.push_back(edge_marker);
 
         // Objects
-
-        
+        for (auto & object: regionals[0].objects) {
+			visualization_msgs::msg::Marker object_marker; {
+                object_marker.header.set__frame_id(std::to_string(regionals[0].edge.coordinate_system));
+                object_marker.set__id(object.id);
+                for (const auto & node: object.footprint.nodes) {
+                    geometry_msgs::msg::Point object_point;
+                    object_point.set__x( node.x/100. + regionals[0].edge.x );						// [cm --> m] & offset
+                    object_point.set__y( node.y/100. + regionals[0].edge.y );						// [cm --> m] & offset
+                    object_marker.points.push_back(object_point);
+                } {
+                    geometry_msgs::msg::Point object_point;
+                    object_point.set__x( object.footprint.nodes[0].x/100. + regionals[0].edge.x );	// [cm --> m] & offset
+                    object_point.set__y( object.footprint.nodes[0].y/100. + regionals[0].edge.y );	// [cm --> m] & offset
+                    object_marker.points.push_back(object_point);
+                }
+                
+                object_marker.set__ns("object");
+                object_marker.set__type(visualization_msgs::msg::Marker::LINE_STRIP);
+                object_marker.set__action(visualization_msgs::msg::Marker::MODIFY);
+                object_marker.scale.set__x(0.1);
+                if (object.object == tim::msg::Object::OBJECT_UNKNOWN) {
+                    object_marker.color.set__a(0.5);
+                    object_marker.color.set__r(0.);
+                    object_marker.color.set__g(0.);
+                    object_marker.color.set__b(1.);
+                }
+                else {
+                    object_marker.color.set__a(0.5);
+                    object_marker.color.set__r(1.);
+                    object_marker.color.set__g(0.);
+                    object_marker.color.set__b(0.);
+                }
+            }
+            rviz.markers.push_back(object_marker);
+		}
     }
-    return marker_array;
+    return rviz;
 }
