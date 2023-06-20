@@ -214,9 +214,10 @@ class TIM
 {
 public:
     TIM();
+    TIM(const tim::msg::TravelerInformationMessage & rosmsg);
 
-    tim::msg::TravelerInformationMessage to_rosmsg();
-    visualization_msgs::msg::MarkerArray to_rviz();
+    tim::msg::TravelerInformationMessage & to_rosmsg();
+    visualization_msgs::msg::MarkerArray & to_rviz();
     
     uint8_t msgCnt{ 0 };
     std::vector<Tim::TravelerDataFrame> data_frames;

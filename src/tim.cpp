@@ -16,10 +16,110 @@ TIM::TIM()
     regionals.push_back(regional_extension);
 }
 
-// Convert TIM to ROS message
-tim::msg::TravelerInformationMessage TIM::to_rosmsg()
+// Convert ROS message to TIM
+TIM::TIM(const tim::msg::TravelerInformationMessage & rosmsg)
 {
-    auto rosmsg = tim::msg::TravelerInformationMessage(); {
+    // 1. Message count
+    msgCnt = rosmsg.msg_cnt;
+
+    // 2. Data frame
+    Tim::TravelerDataFrame tim_traveler_data_frame; {
+        tim_traveler_data_frame.not_used = rosmsg.data_frames[0].not_used;
+        tim_traveler_data_frame.frame_type = rosmsg.data_frames[0].frame_type;
+        tim_traveler_data_frame.msg_id = rosmsg.data_frames[0].msg_id;
+        tim_traveler_data_frame.start_time = rosmsg.data_frames[0].start_time;
+        tim_traveler_data_frame.duration_time = rosmsg.data_frames[0].duration_time;
+        tim_traveler_data_frame.priority = rosmsg.data_frames[0].priority;
+
+        tim_traveler_data_frame.not_used1 = rosmsg.data_frames[0].not_used1;
+        Tim::GeographicalPath tim_region; {
+            tim_region.lat = rosmsg.data_frames[0].regions[0].anchor_lat;
+            tim_region.lon = rosmsg.data_frames[0].regions[0].anchor_lon;
+        }
+        tim_traveler_data_frame.regions.push_back(tim_region);
+
+        tim_traveler_data_frame.not_used2 = rosmsg.data_frames[0].not_used2;
+        tim_traveler_data_frame.not_used3 = rosmsg.data_frames[0].not_used3;
+        tim_traveler_data_frame.content = rosmsg.data_frames[0].content;
+    }
+    data_frames.push_back(tim_traveler_data_frame);
+
+    // 3. Regional
+    Tim::RegionalExtension tim_regional_extension; {
+
+        // 3.1. Edge
+        tim_regional_extension.time_stamp = rosmsg.regionals[0].time_stamp;
+        tim_regional_extension.processing_time = rosmsg.regionals[0].processing_time;
+        tim_regional_extension.edge.id = rosmsg.regionals[0].edge.id;
+        tim_regional_extension.edge.coordinate_system = rosmsg.regionals[0].edge.coordinate_system;
+        tim_regional_extension.edge.x = rosmsg.regionals[0].edge.x;
+        tim_regional_extension.edge.y = rosmsg.regionals[0].edge.y;
+    
+        // 3.2. Objects
+        tim_regional_extension.num_objects = rosmsg.regionals[0].num_objects;
+        for (const tim::msg::Object & object: rosmsg.regionals[0].objects) {
+            Tim::Object tim_object; {
+
+                // 3.2.1. State
+                tim_object.id = object.id;
+                tim_object.pose.x = object.pose.x;
+                tim_object.pose.y = object.pose.y;
+                tim_object.pose.angle = object.pose.angle;
+                tim_object.velocity.x = object.velocity.x;
+                tim_object.velocity.y = object.velocity.y;
+
+                tim_object.footprint.num_nodes = object.footprint.num_nodes;
+                for (const tim::msg::Node & node: object.footprint.nodes) {
+                    Tim::Node tim_node; {
+                        tim_node.x = node.x;
+                        tim_node.y = node.y;
+                    }
+                    tim_object.footprint.nodes.push_back(tim_node);
+                }
+
+                // 3.2.2. Classification
+                tim_object.object = object.object;
+                tim_object.object_classification_score = object.object_classification_score;
+                tim_object.location = object.location;
+                tim_object.location_classification_score = object.location_classification_score;
+                tim_object.num_actions = object.num_actions;
+                for (const tim::msg::Action & action: object.actions) {
+                    Tim::Action tim_action; {
+                        tim_action.action = action.action;
+                        tim_action.action_classification_score = action.action_classification_score;
+                    }
+                    tim_object.actions.push_back(tim_action);
+                }
+
+                // 3.2.3. Trajectory forecasting
+                tim_object.trajectory_forecasting.prediction_horizon = object.trajectory_forecasting.prediction_horizon;
+                tim_object.trajectory_forecasting.sampling_period = object.trajectory_forecasting.sampling_period;
+                tim_object.trajectory_forecasting.num_predictions = object.trajectory_forecasting.num_predictions;
+                for (const tim::msg::Prediction & prediction: object.trajectory_forecasting.predictions) {
+                    Tim::Prediction tim_prediction; {
+                        tim_prediction.num_nodes = prediction.num_nodes;
+                        for (const tim::msg::Node & node: prediction.nodes) {
+                            Tim::Node tim_node; {
+                                tim_node.x = node.x;
+                                tim_node.y = node.y;
+                            }
+                            tim_prediction.nodes.push_back(tim_node);
+                        }
+                    }
+                    tim_object.trajectory_forecasting.predictions.push_back(tim_prediction);
+                }
+                tim_object.trajectory_forecasting_score = object.trajectory_forecasting_score;
+            }
+            tim_regional_extension.objects.push_back(tim_object);
+        }
+    }
+    regionals.push_back(tim_regional_extension);
+}
+
+// Convert TIM to ROS message
+tim::msg::TravelerInformationMessage & TIM::to_rosmsg()
+{
+    tim::msg::TravelerInformationMessage rosmsg; {
 
         // 1. Message count
         rosmsg.msg_cnt = msgCnt;
@@ -65,7 +165,7 @@ tim::msg::TravelerInformationMessage TIM::to_rosmsg()
             for (Tim::Object & object: regionals[0].objects) {
                 tim::msg::Object rosmsg_object; {
 
-                    // 3.2.1. State					
+                    // 3.2.1. State
                     rosmsg_object.set__id(object.id);
                     rosmsg_object.pose.set__x(object.pose.x);				// [cm]
                     rosmsg_object.pose.set__y(object.pose.y);				// [cm]
@@ -82,7 +182,7 @@ tim::msg::TravelerInformationMessage TIM::to_rosmsg()
                         rosmsg_object.footprint.nodes.push_back(rosmsg_node);
                     }
 
-                    // 3.2.2. Classification					
+                    // 3.2.2. Classification
                     rosmsg_object.set__object(object.object);					
                     rosmsg_object.set__object_classification_score(object.object_classification_score);
                     rosmsg_object.set__location(object.location);
@@ -125,11 +225,10 @@ tim::msg::TravelerInformationMessage TIM::to_rosmsg()
 }
 
 // Convert TIM to Rviz message
-visualization_msgs::msg::MarkerArray TIM::to_rviz()
+visualization_msgs::msg::MarkerArray & TIM::to_rviz()
 {
     float edge_height = 5.;
-
-    auto rviz = visualization_msgs::msg::MarkerArray(); {
+    visualization_msgs::msg::MarkerArray rviz; {
     
         // Edge
 		visualization_msgs::msg::Marker edge_marker; {

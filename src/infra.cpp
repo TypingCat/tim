@@ -19,12 +19,10 @@ using namespace std::chrono_literals;
 class Infra: public rclcpp::Node
 {
 public:
-	Infra(int id): Node("tim_infra")
+	Infra(int num_objects): Node("tim_infra")
 	{
-		id_ = id;
-
 		// Initialize observation
-		for (int i=0; i<20; ++i) {
+		for (int i=0; i<num_objects; ++i) {
 			auto object = Object(i);
 			observation_.push_back(object);
 		}
@@ -51,11 +49,9 @@ private:
         for (Object & object: observation_) {
 			object.update(dt_);
 		}
+		TIM tim = write(observation_);
 
 		// Broadcast TIM
-		TIM tim;
-		write(tim, observation_);
-
 		auto tim_rosmsg = tim.to_rosmsg();
 		rsu->publish(tim_rosmsg);
 
@@ -68,92 +64,97 @@ private:
 		}
 	}
 	
-	void write(TIM & tim, const std::vector<Object> & observation)
+	TIM & write(const std::vector<Object> & observation)
 	{
 		auto time = this->get_clock()->now();
 
-		// 1. Message count
-		tim.msgCnt = count_++;
+		TIM tim; {
 
-		// 2. Data frame
-		tim.data_frames[0].start_time = uint32_t(time.seconds()/60)%60;		// [minutes]
-		tim.data_frames[0].duration_time = uint16_t(1);						// [minutes]
+			// 1. Message count
+			tim.msgCnt = count_++;
 
-		// 3. Regional
-		// 3.1. Edge
-		tim.regionals[0].time_stamp = uint16_t(time.nanoseconds()/60)%60;	// [milliseconds]
-		tim.regionals[0].processing_time = uint16_t(1);						// [milliseconds]
-		tim.regionals[0].edge.id = uint32_t(id_);
-		tim.regionals[0].edge.coordinate_system = uint16_t(5186);
-		tim.regionals[0].edge.x = _Float64(pos_x_);
-		tim.regionals[0].edge.y = _Float64(pos_y_);
+			// 2. Data frame
+			tim.data_frames[0].start_time = uint32_t(time.seconds()/60)%60;		// [minutes]
+			tim.data_frames[0].duration_time = uint16_t(1);						// [minutes]
 
-		// 3.2. Objects
-		tim.regionals[0].num_objects = uint8_t(observation.size());
+			// 3. Regional
+			// 3.1. Edge
+			tim.regionals[0].time_stamp = uint16_t(time.nanoseconds()/60)%60;	// [milliseconds]
+			tim.regionals[0].processing_time = uint16_t(1);						// [milliseconds]
+			tim.regionals[0].edge.id = uint32_t(id_);
+			tim.regionals[0].edge.coordinate_system = uint16_t(5186);
+			tim.regionals[0].edge.x = _Float64(pos_x_);
+			tim.regionals[0].edge.y = _Float64(pos_y_);
 
-		for (Object & object: observation_) {
-			float x, y, Y;
-			std::vector< std::tuple<float, float> > footprint;
-			std::tie(x, y, Y, footprint) = object.get_states();
-			float dx = x - pos_x_;
-			float dy = y - pos_y_;
-			float dist = sqrt(pow(dx, 2) + pow(dy, 2));
+			// 3.2. Objects
+			tim.regionals[0].num_objects = uint8_t(observation.size());
 
-			Tim::Object tim_object; {
+			for (Object & object: observation_) {
+				float x, y, Y;
+				std::vector< std::tuple<float, float> > footprint;
+				std::tie(x, y, Y, footprint) = object.get_states();
+				float dx = x - pos_x_;
+				float dy = y - pos_y_;
+				float dist = sqrt(pow(dx, 2) + pow(dy, 2));
 
-				// 3.2.1. State
-				tim_object.id = uint32_t(object.get_id());
-				tim_object.pose.x = int16_t(dx*100.);					// [m --> cm]
-				tim_object.pose.y = int16_t(dy*100.);					// [m --> cm]
-				tim_object.pose.angle = uint16_t(Y*180./M_PI/0.0125);	// [rad --> 0.0125deg]
-				tim_object.velocity.x = int16_t(0./0.02);				// [m --> 0.02m]
-				tim_object.velocity.y = int16_t(0./0.02);				// [m --> 0.02m]
+				Tim::Object tim_object; {
 
-				tim_object.footprint.num_nodes = uint8_t(footprint.size());
-				for (std::tuple<float, float> & node: footprint) {
-					Tim::Node tim_node;					
-					tim_node.x = int16_t((std::get<0>(node) - pos_x_)*100.);	// [m --> cm]
-					tim_node.y = int16_t((std::get<1>(node) - pos_y_)*100.);	// [m --> cm]							
-					tim_object.footprint.nodes.push_back(tim_node);
-				}
+					// 3.2.1. State
+					tim_object.id = uint32_t(object.get_id());
+					tim_object.pose.x = int16_t(dx*100.);					// [m --> cm]
+					tim_object.pose.y = int16_t(dy*100.);					// [m --> cm]
+					tim_object.pose.angle = uint16_t(Y*180./M_PI/0.0125);	// [rad --> 0.0125deg]
+					tim_object.velocity.x = int16_t(0./0.02);				// [m --> 0.02m]
+					tim_object.velocity.y = int16_t(0./0.02);				// [m --> 0.02m]
 
-				// 3.2.2. Classification
-				tim_object.object = uint8_t(	// OBJECT_CAR for detected, OBJECT_UNKNOWN for undetected
-					dist < detection_range_ ? Tim::OBJECT::CAR : Tim::OBJECT::UNKNOWN);
-				tim_object.object_classification_score = uint8_t(90);
-				tim_object.location = uint8_t(Tim::LOCATION::CARLANE);
-				tim_object.location_classification_score = uint8_t(90);
-				tim_object.num_actions = uint8_t(1);
-				Tim::Action tim_action; {
-					tim_action.action = uint8_t(Tim::ACTION::MOVING);
-					tim_action.action_classification_score = uint8_t(90);
-				}
-				tim_object.actions.push_back(tim_action);
-
-				// 3.2.3. Trajectory forecasting
-				tim_object.trajectory_forecasting.prediction_horizon = uint16_t(0);	// [milliseconds]
-				tim_object.trajectory_forecasting.sampling_period = uint16_t(0);	// [milliseconds]
-				tim_object.trajectory_forecasting.num_predictions = uint8_t(1);
-				Tim::Prediction tim_prediction; {					// First prediction for current pose
-					tim_prediction.num_nodes = uint8_t(1);
-					Tim::Node tim_node; {
-						tim_node.x = int16_t(tim_object.pose.x);	// [cm]
-						tim_node.y = int16_t(tim_object.pose.y);	// [cm]
+					tim_object.footprint.num_nodes = uint8_t(footprint.size());
+					for (std::tuple<float, float> & node: footprint) {
+						Tim::Node tim_node; {
+							tim_node.x = int16_t((std::get<0>(node) - pos_x_)*100.);	// [m --> cm]
+							tim_node.y = int16_t((std::get<1>(node) - pos_y_)*100.);	// [m --> cm]
+						}
+						tim_object.footprint.nodes.push_back(tim_node);
 					}
-					tim_prediction.nodes.push_back(tim_node);
+
+					// 3.2.2. Classification
+					tim_object.object = uint8_t(	// OBJECT_CAR for detected, OBJECT_UNKNOWN for undetected
+						dist < detection_range_ ? Tim::OBJECT::CAR : Tim::OBJECT::UNKNOWN);
+					tim_object.object_classification_score = uint8_t(90);
+					tim_object.location = uint8_t(Tim::LOCATION::CARLANE);
+					tim_object.location_classification_score = uint8_t(90);
+					tim_object.num_actions = uint8_t(1);
+					Tim::Action tim_action; {
+						tim_action.action = uint8_t(Tim::ACTION::MOVING);
+						tim_action.action_classification_score = uint8_t(90);
+					}
+					tim_object.actions.push_back(tim_action);
+
+					// 3.2.3. Trajectory forecasting
+					tim_object.trajectory_forecasting.prediction_horizon = uint16_t(0);	// [milliseconds]
+					tim_object.trajectory_forecasting.sampling_period = uint16_t(0);	// [milliseconds]
+					tim_object.trajectory_forecasting.num_predictions = uint8_t(1);
+					Tim::Prediction tim_prediction; {					// First prediction for current pose
+						tim_prediction.num_nodes = uint8_t(1);
+						Tim::Node tim_node; {
+							tim_node.x = int16_t(tim_object.pose.x);	// [cm]
+							tim_node.y = int16_t(tim_object.pose.y);	// [cm]
+						}
+						tim_prediction.nodes.push_back(tim_node);
+					}
+					tim_object.trajectory_forecasting.predictions.push_back(tim_prediction);
+					tim_object.trajectory_forecasting_score = uint8_t(90);
 				}
-				tim_object.trajectory_forecasting.predictions.push_back(tim_prediction);
-				tim_object.trajectory_forecasting_score = uint8_t(90);
+				tim.regionals[0].objects.push_back(tim_object);
 			}
-			tim.regionals[0].objects.push_back(tim_object);
 		}
+		return tim;
 	}
 
-	rclcpp::Publisher<tim::msg::TravelerInformationMessage>::SharedPtr rsu;
+	rclcpp::Publisher<tim::msg::TravelerInformationMessage>::SharedPtr rsu;	// Road-Side Unit (RSU)
 	rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr markers_publisher;
 	rclcpp::TimerBase::SharedPtr timer;
 
-	int id_;
+	int id_{ 0 };
 	float pos_x_{ 10. };			// [m]
 	float pos_y_{ -10. };			// [m]
 	float detection_range_{ 30. };	// [m]
@@ -165,7 +166,7 @@ private:
 int main(int argc, char ** argv)
 {
 	rclcpp::init(argc, argv);
-	rclcpp::spin(std::make_shared<Infra>(0));
+	rclcpp::spin(std::make_shared<Infra>(20));
 	rclcpp::shutdown();
 	return 0;
 }

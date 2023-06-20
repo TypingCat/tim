@@ -41,19 +41,19 @@ public:
 private:
 	void timer_callback()
 	{
-		// Simulate this vehicle
-		this->update(dt_);
-
-		// Visualization
 		auto visualization = visualization_msgs::msg::MarkerArray(); {
-			auto vehicle_marker = extract_vehicle_marker(this);
+
+			// Visualize ICAD vehicle
+			this->update(dt_);
+			auto vehicle_marker = generate_vehicle_marker(this);
 			visualization.markers.push_back(vehicle_marker);
 
+			// Visualize TIM
 			if (observation_.size() != 0) {
-				auto edge = observation_.back().regionals[0].edge;
+				Tim::Edge edge = observation_.back().regionals[0].edge;
 
 				for (auto & object: observation_.back().regionals[0].objects) {
-					auto perception_marker = extract_perception_marker(edge, object, this);
+					auto perception_marker = generate_perception_marker(edge, object, this);
 					visualization.markers.push_back(perception_marker);
 				}
 
@@ -65,14 +65,14 @@ private:
 
     void tim_callback(const tim::msg::TravelerInformationMessage & tim)
     {
-		observation_.push_back(tim);
+		observation_.push_back(TIM(tim));
 		
 		if (tim.msg_cnt%10 == 0) {
 			RCLCPP_INFO(this->get_logger(), "TIM %d subscribed", tim.msg_cnt);
 		}
     }
 
-    visualization_msgs::msg::Marker extract_vehicle_marker(Vehicle * vehicle)
+    visualization_msgs::msg::Marker & generate_vehicle_marker(Vehicle * vehicle)
     {
 		float x, y, Y;
 		std::vector< std::tuple<float, float> > footprint;
@@ -98,16 +98,13 @@ private:
 			vehicle_marker.scale.set__x(0.1);
 			vehicle_marker.color.set__a(0.5);
 			vehicle_marker.color.set__r(0.);
-			vehicle_marker.color.set__g(1.);	// GREEN for vehicles
+			vehicle_marker.color.set__g(1.);
 			vehicle_marker.color.set__b(0.);
 		}
         return vehicle_marker;
     }
 
-	visualization_msgs::msg::Marker extract_perception_marker(
-		tim::msg::Edge & edge,
-		tim::msg::Object & object,
-		Vehicle * vehicle)
+	visualization_msgs::msg::Marker & generate_perception_marker(Tim::Edge & edge, Tim::Object & object, Vehicle * vehicle)
     {
 		float x, y, Y;
 		std::vector< std::tuple<float, float> > footprint;
@@ -139,14 +136,14 @@ private:
         return perception_marker;
     }
 
-	rclcpp::Subscription<tim::msg::TravelerInformationMessage>::SharedPtr obu;
+	rclcpp::Subscription<tim::msg::TravelerInformationMessage>::SharedPtr obu;	// On-Board Unit (OBU)
 	rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr markers_publisher;
 	rclcpp::TimerBase::SharedPtr timer;
 
 	int id_;
 	float dt_{ 0.1 };					// [seconds]
 	int coordinate_system_{ 5186 };		// EPSG
-	std::vector<tim::msg::TravelerInformationMessage> observation_;
+	std::vector<TIM> observation_;
 };
 
 int main(int argc, char ** argv)
