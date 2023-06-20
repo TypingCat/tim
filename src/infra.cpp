@@ -1,6 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <tim/msg/traveler_information_message.hpp>
+#include <std_msgs/msg/string.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
@@ -28,8 +29,12 @@ public:
 		}
 		
 		// Initialize ROS threads
-		rsu = this->create_publisher<tim::msg::TravelerInformationMessage>(
-			"tim",
+		rsu_rosmsg = this->create_publisher<tim::msg::TravelerInformationMessage>(
+			"tim_rosmsg",
+			10
+		);
+		rsu_string = this->create_publisher<std_msgs::msg::String>(
+			"tim_string",
 			10
 		);
 		markers_publisher = this->create_publisher<visualization_msgs::msg::MarkerArray>(
@@ -49,14 +54,20 @@ private:
         for (Object & object: observation_) {
 			object.update(dt_);
 		}
-		TIM tim = write(observation_);
+		TIM tim = perceive(observation_);
 
 		// Broadcast TIM
-		auto tim_rosmsg = tim.to_rosmsg();
-		rsu->publish(tim_rosmsg);
+		tim::msg::TravelerInformationMessage tim_rosmsg = tim.to_rosmsg();
+		rsu_rosmsg->publish(tim_rosmsg);
+
+		std::string s = tim.to_string();
+		std_msgs::msg::String tim_string; {
+			tim_string.set__data(s);
+		}
+		rsu_string->publish(tim_string);
 
 		// Visualize TIM
-		auto tim_rviz = tim.to_rviz();
+		visualization_msgs::msg::MarkerArray tim_rviz = tim.to_rviz();
 		markers_publisher->publish(tim_rviz);
 
 		if (count_%10 == 0) {
@@ -64,11 +75,10 @@ private:
 		}
 	}
 	
-	TIM & write(const std::vector<Object> & observation)
+	TIM perceive(const std::vector<Object> & observation)
 	{
-		auto time = this->get_clock()->now();
-
 		TIM tim; {
+			auto time = this->get_clock()->now();
 
 			// 1. Message count
 			tim.msgCnt = count_++;
@@ -150,7 +160,8 @@ private:
 		return tim;
 	}
 
-	rclcpp::Publisher<tim::msg::TravelerInformationMessage>::SharedPtr rsu;	// Road-Side Unit (RSU)
+	rclcpp::Publisher<tim::msg::TravelerInformationMessage>::SharedPtr rsu_rosmsg;	// Road-Side Unit (RSU)
+	rclcpp::Publisher<std_msgs::msg::String>::SharedPtr rsu_string;
 	rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr markers_publisher;
 	rclcpp::TimerBase::SharedPtr timer;
 

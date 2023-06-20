@@ -1,6 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <tim/msg/traveler_information_message.hpp>
+#include <std_msgs/msg/string.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
@@ -21,13 +22,25 @@ public:
 	Vehicle(int id): Node("tim_vehicle"), Object(id)
 	{
 		id_ = id;
+		
+		this->declare_parameter<std::string>("obu_mode", "string");
+		std::string obu_mode = this->get_parameter("obu_mode").as_string();
 
 		// Initialize ROS threads
-		obu = this->create_subscription<tim::msg::TravelerInformationMessage>(
-			"tim",
-			10,
-            std::bind(&Vehicle::tim_callback, this, _1)
-		);
+		if (obu_mode == "rosmsg") {
+			obu_rosmsg = this->create_subscription<tim::msg::TravelerInformationMessage>(
+				"tim_rosmsg",
+				10,
+				std::bind(&Vehicle::tim_rosmsg_callback, this, _1)
+			);
+		}
+		else if (obu_mode == "string") {
+			obu_string = this->create_subscription<std_msgs::msg::String>(
+				"tim_string",
+				10,
+				std::bind(&Vehicle::tim_string_callback, this, _1)
+			);
+		}
 		markers_publisher = this->create_publisher<visualization_msgs::msg::MarkerArray>(
 			"vehicle_markers",
 			10
@@ -41,10 +54,11 @@ public:
 private:
 	void timer_callback()
 	{
+		this->update(dt_);
+		
 		auto visualization = visualization_msgs::msg::MarkerArray(); {
 
-			// Visualize ICAD vehicle
-			this->update(dt_);
+			// Visualize ICAD vehicle			
 			auto vehicle_marker = generate_vehicle_marker(this);
 			visualization.markers.push_back(vehicle_marker);
 
@@ -63,16 +77,25 @@ private:
 		markers_publisher->publish(visualization);
 	}
 
-    void tim_callback(const tim::msg::TravelerInformationMessage & tim)
+    void tim_rosmsg_callback(const tim::msg::TravelerInformationMessage & tim_rosmsg)
     {
-		observation_.push_back(TIM(tim));
+		observation_.push_back(TIM(tim_rosmsg));
 		
-		if (tim.msg_cnt%10 == 0) {
-			RCLCPP_INFO(this->get_logger(), "TIM %d subscribed", tim.msg_cnt);
+		if (observation_.back().msgCnt%10 == 0) {
+			RCLCPP_INFO(this->get_logger(), "TIM(rosmsg) %d subscribed", observation_.back().msgCnt);
 		}
     }
 
-    visualization_msgs::msg::Marker & generate_vehicle_marker(Vehicle * vehicle)
+    void tim_string_callback(const std_msgs::msg::String & tim_string)
+    {
+		observation_.push_back(TIM(tim_string.data));
+		
+		if (observation_.back().msgCnt%10 == 0) {
+			RCLCPP_INFO(this->get_logger(), "TIM(rosmsg) %d subscribed", observation_.back().msgCnt);
+		}
+    }
+
+    visualization_msgs::msg::Marker generate_vehicle_marker(Vehicle * vehicle)
     {
 		float x, y, Y;
 		std::vector< std::tuple<float, float> > footprint;
@@ -104,7 +127,7 @@ private:
         return vehicle_marker;
     }
 
-	visualization_msgs::msg::Marker & generate_perception_marker(Tim::Edge & edge, Tim::Object & object, Vehicle * vehicle)
+	visualization_msgs::msg::Marker generate_perception_marker(Tim::Edge & edge, Tim::Object & object, Vehicle * vehicle)
     {
 		float x, y, Y;
 		std::vector< std::tuple<float, float> > footprint;
@@ -136,7 +159,8 @@ private:
         return perception_marker;
     }
 
-	rclcpp::Subscription<tim::msg::TravelerInformationMessage>::SharedPtr obu;	// On-Board Unit (OBU)
+	rclcpp::Subscription<tim::msg::TravelerInformationMessage>::SharedPtr obu_rosmsg;	// On-Board Unit (OBU)
+	rclcpp::Subscription<std_msgs::msg::String>::SharedPtr obu_string;
 	rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr markers_publisher;
 	rclcpp::TimerBase::SharedPtr timer;
 

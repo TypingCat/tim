@@ -1,7 +1,10 @@
 #include <iostream>
 #include <vector>
+#include <string>
+#include <sstream>
 
 #include <tim/msg/traveler_information_message.hpp>
+#include <std_msgs/msg/string.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
@@ -21,7 +24,11 @@ namespace Tim {
     class TravelerDataFrame
     {
     public:
-        TravelerDataFrame();
+        TravelerDataFrame()
+        {
+            GeographicalPath anchor;
+            regions.push_back(anchor);
+        }
 
         // Part I, Frame header
         uint8_t not_used{ 0 };
@@ -215,11 +222,17 @@ class TIM
 public:
     TIM();
     TIM(const tim::msg::TravelerInformationMessage & rosmsg);
+    TIM(const std::string & s);
 
-    tim::msg::TravelerInformationMessage & to_rosmsg();
-    visualization_msgs::msg::MarkerArray & to_rviz();
+    tim::msg::TravelerInformationMessage to_rosmsg();
+    visualization_msgs::msg::MarkerArray to_rviz();
+    std::string to_string();
     
     uint8_t msgCnt{ 0 };
     std::vector<Tim::TravelerDataFrame> data_frames;
     std::vector<Tim::RegionalExtension> regionals;
+
+private:
+    template <typename T> void write_buffer(std::stringstream & ss, T data);
+    template <typename T> void read_buffer(std::stringstream & ss, T & data);
 };
