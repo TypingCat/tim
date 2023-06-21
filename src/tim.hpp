@@ -228,7 +228,7 @@ public:
     visualization_msgs::msg::MarkerArray to_rviz();
     std::string to_string();
     
-    uint8_t msgCnt{ 0 };
+    uint8_t msg_cnt{ 0 };
     std::vector<Tim::TravelerDataFrame> data_frames;
     std::vector<Tim::RegionalExtension> regionals;
 

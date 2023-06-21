@@ -14,7 +14,7 @@ TIM::TIM()
 TIM::TIM(const tim::msg::TravelerInformationMessage & rosmsg)
 {
     // 1. Message count
-    msgCnt = rosmsg.msg_cnt;
+    msg_cnt = rosmsg.msg_cnt;
 
     // 2. Data frame
     Tim::TravelerDataFrame tim_traveler_data_frame; {
@@ -116,7 +116,7 @@ TIM::TIM(const std::string & s)
     std::stringstream ss(s);
 
     // 1. Message count
-    read_buffer(ss, msgCnt);
+    read_buffer(ss, msg_cnt);
 
     // 2. Data frame
     Tim::TravelerDataFrame tim_traveler_data_frame; {
@@ -218,7 +218,7 @@ tim::msg::TravelerInformationMessage TIM::to_rosmsg()
     tim::msg::TravelerInformationMessage rosmsg; {
 
         // 1. Message count
-        rosmsg.msg_cnt = msgCnt;
+        rosmsg.msg_cnt = msg_cnt;
 
         // 2. Data frame
         tim::msg::TravelerDataFrame rosmsg_traveler_data_frame; {
@@ -396,7 +396,7 @@ std::string TIM::to_string()
     std::stringstream ss; {
 
         // 1. Message count
-        write_buffer(ss, msgCnt);
+        write_buffer(ss, msg_cnt);
         
         // 2. Data frame
         write_buffer(ss, data_frames[0].not_used);

@@ -86,8 +86,8 @@ private:
     {
 		observation_.push_back(TIM(tim_rosmsg));
 		
-		if (observation_.back().msgCnt%10 == 0) {
-			RCLCPP_INFO(this->get_logger(), "TIM(rosmsg) %d subscribed", observation_.back().msgCnt);
+		if (observation_.back().msg_cnt%10 == 0) {
+			RCLCPP_INFO(this->get_logger(), "TIM(rosmsg) %d subscribed", observation_.back().msg_cnt);
 		}
     }
 
@@ -95,8 +95,8 @@ private:
     {
 		observation_.push_back(TIM(tim_string.data));
 		
-		if (observation_.back().msgCnt%10 == 0) {
-			RCLCPP_INFO(this->get_logger(), "TIM(rosmsg) %d subscribed", observation_.back().msgCnt);
+		if (observation_.back().msg_cnt%10 == 0) {
+			RCLCPP_INFO(this->get_logger(), "TIM(rosmsg) %d subscribed", observation_.back().msg_cnt);
 		}
     }
 

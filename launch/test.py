@@ -10,7 +10,7 @@ def generate_launch_description():
         launch_ros.actions.Node(
             package='tim',
             executable='infra',
-            name='infra',
+            name='infra_0',
             parameters=[
                 {"id": 0},
                 {"num_objects": 20},

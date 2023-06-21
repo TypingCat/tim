@@ -108,7 +108,7 @@ private:
 			auto time = this->get_clock()->now();
 
 			// 1. Message count
-			tim.msgCnt = count_++;
+			tim.msg_cnt = count_++;
 
 			// 2. Data frame
 			tim.data_frames[0].start_time = uint32_t(time.seconds()/60)%60;		// [minutes]
