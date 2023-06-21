@@ -343,6 +343,8 @@ visualization_msgs::msg::MarkerArray TIM::to_rviz()
 			edge_marker.color.set__r(1.);
 			edge_marker.color.set__g(0.);
 			edge_marker.color.set__b(0.);
+            edge_marker.lifetime.set__sec(0);
+            edge_marker.lifetime.set__nanosec(100000000);
 		}
         rviz.markers.push_back(edge_marker);
 
@@ -379,6 +381,8 @@ visualization_msgs::msg::MarkerArray TIM::to_rviz()
                     object_marker.color.set__g(0.);
                     object_marker.color.set__b(0.);
                 }
+                object_marker.lifetime.set__sec(0);
+                object_marker.lifetime.set__nanosec(100000000);
             }
             rviz.markers.push_back(object_marker);
 		}

@@ -72,6 +72,12 @@ target_link_libraries(vehicle "${cpp_typesupport_target}" TIM)
 install(TARGETS vehicle
   DESTINATION lib/${PROJECT_NAME})
 
+## launch
+install(DIRECTORY
+  launch
+  DESTINATION share/${PROJECT_NAME}/
+)
+
 # test
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

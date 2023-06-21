@@ -20,12 +20,23 @@ using namespace std::chrono_literals;
 class Infra: public rclcpp::Node
 {
 public:
-	Infra(int num_objects): Node("tim_infra")
+	Infra(): Node("tim_infra")
 	{
+		// Get parameters
+		this->declare_parameter<int>("id", 0);
+		id_ = this->get_parameter("id").as_int();
+
+		this->declare_parameter<int>("num_objects", 20);
+		int num_objects = this->get_parameter("num_objects").as_int();
+
+		this->declare_parameter<double>("detection_range", 20.);
+		detection_range_ = this->get_parameter("detection_range").as_double();
+
 		// Initialize observation
 		for (int i=0; i<num_objects; ++i) {
-			auto object = Object(i);
-			observation_.push_back(object);
+			Object object;
+			object.id = i;
+			objects_.push_back(object);
 		}
 		
 		// Initialize ROS threads
@@ -51,12 +62,26 @@ private:
 	void timer_callback()
 	{
 		// Simulate objects
-        for (Object & object: observation_) {
+		std::vector<Object> observation;
+        for (Object & object: objects_) {
 			object.update(dt_);
+
+			float x, y, Y;
+			std::vector< std::tuple<float, float> > footprint;
+			std::tie(x, y, Y, footprint) = object.get_states();
+
+			float dx = x - pos_x_;
+			float dy = y - pos_y_;
+			float dist = sqrt(pow(dx, 2) + pow(dy, 2));
+
+			if (dist < detection_range_) {
+				observation.push_back(object);
+			}
 		}
-		TIM tim = perceive(observation_);
 
 		// Broadcast TIM
+		TIM tim = write(observation);
+
 		tim::msg::TravelerInformationMessage tim_rosmsg = tim.to_rosmsg();
 		rsu_rosmsg->publish(tim_rosmsg);
 
@@ -67,7 +92,9 @@ private:
 		rsu_string->publish(tim_string);
 
 		// Visualize TIM
-		visualization_msgs::msg::MarkerArray tim_rviz = tim.to_rviz();
+		TIM tim_full = write(objects_);
+
+		visualization_msgs::msg::MarkerArray tim_rviz = tim_full.to_rviz();
 		markers_publisher->publish(tim_rviz);
 
 		if (count_%10 == 0) {
@@ -75,7 +102,7 @@ private:
 		}
 	}
 	
-	TIM perceive(const std::vector<Object> & observation)
+	TIM write(std::vector<Object> & observation)
 	{
 		TIM tim; {
 			auto time = this->get_clock()->now();
@@ -99,7 +126,7 @@ private:
 			// 3.2. Objects
 			tim.regionals[0].num_objects = uint8_t(observation.size());
 
-			for (Object & object: observation_) {
+			for (Object & object: observation) {
 				float x, y, Y;
 				std::vector< std::tuple<float, float> > footprint;
 				std::tie(x, y, Y, footprint) = object.get_states();
@@ -110,7 +137,7 @@ private:
 				Tim::Object tim_object; {
 
 					// 3.2.1. State
-					tim_object.id = uint32_t(object.get_id());
+					tim_object.id = uint32_t(object.id);
 					tim_object.pose.x = int16_t(dx*100.);					// [m --> cm]
 					tim_object.pose.y = int16_t(dy*100.);					// [m --> cm]
 					tim_object.pose.angle = uint16_t(Y*180./M_PI/0.0125);	// [rad --> 0.0125deg]
@@ -165,19 +192,20 @@ private:
 	rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr markers_publisher;
 	rclcpp::TimerBase::SharedPtr timer;
 
-	int id_{ 0 };
+	int id_;
+	double detection_range_;
+
 	float pos_x_{ 10. };			// [m]
 	float pos_y_{ -10. };			// [m]
-	float detection_range_{ 30. };	// [m]
 	float dt_{ 0.1 };				// [seconds]
 	int count_{ 0 };
-	std::vector<Object> observation_;
+	std::vector<Object> objects_;
 };
 
 int main(int argc, char ** argv)
 {
 	rclcpp::init(argc, argv);
-	rclcpp::spin(std::make_shared<Infra>(20));
+	rclcpp::spin(std::make_shared<Infra>());
 	rclcpp::shutdown();
 	return 0;
 }

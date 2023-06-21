@@ -19,12 +19,17 @@ using std::placeholders::_1;
 class Vehicle: public rclcpp::Node, Object
 {
 public:
-	Vehicle(int id): Node("tim_vehicle"), Object(id)
+	Vehicle(): Node("tim_vehicle"), Object()
 	{
-		id_ = id;
+		// Get parameters
+		this->declare_parameter<int>("id", 0);
+		id_ = this->get_parameter("id").as_int();
 		
 		this->declare_parameter<std::string>("obu_mode", "string");
 		std::string obu_mode = this->get_parameter("obu_mode").as_string();
+		
+		this->declare_parameter< std::vector<double> >("color", {0., 1., 0.});
+		color_ = this->get_parameter("color").as_double_array();
 
 		// Initialize ROS threads
 		if (obu_mode == "rosmsg") {
@@ -120,9 +125,11 @@ private:
 			vehicle_marker.set__action(visualization_msgs::msg::Marker::MODIFY);
 			vehicle_marker.scale.set__x(0.1);
 			vehicle_marker.color.set__a(0.5);
-			vehicle_marker.color.set__r(0.);
-			vehicle_marker.color.set__g(1.);
-			vehicle_marker.color.set__b(0.);
+			vehicle_marker.color.set__r(color_[0]);
+			vehicle_marker.color.set__g(color_[1]);
+			vehicle_marker.color.set__b(color_[2]);
+			vehicle_marker.lifetime.set__sec(0);
+			vehicle_marker.lifetime.set__nanosec(100000000);
 		}
         return vehicle_marker;
     }
@@ -152,9 +159,11 @@ private:
 			perception_marker.set__action(visualization_msgs::msg::Marker::MODIFY);
 			perception_marker.scale.set__x(0.1);
 			perception_marker.color.set__a(0.2);
-			perception_marker.color.set__r(0.);
-			perception_marker.color.set__g(1.);	// GREEN for vehicles
-			perception_marker.color.set__b(0.);
+			perception_marker.color.set__r(color_[0]);
+			perception_marker.color.set__g(color_[1]);
+			perception_marker.color.set__b(color_[2]);
+			perception_marker.lifetime.set__sec(0);
+			perception_marker.lifetime.set__nanosec(100000000);
 		}
         return perception_marker;
     }
@@ -165,6 +174,8 @@ private:
 	rclcpp::TimerBase::SharedPtr timer;
 
 	int id_;
+	std::vector<double> color_;
+
 	float dt_{ 0.1 };					// [seconds]
 	int coordinate_system_{ 5186 };		// EPSG
 	std::vector<TIM> observation_;
@@ -173,7 +184,7 @@ private:
 int main(int argc, char ** argv)
 {
 	rclcpp::init(argc, argv);
-	rclcpp::spin(std::make_shared<Vehicle>(0));
+	rclcpp::spin(std::make_shared<Vehicle>());
 	rclcpp::shutdown();
 	return 0;
 }

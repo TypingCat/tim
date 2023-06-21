@@ -6,10 +6,8 @@
 class Object
 {
 public:
-	Object(int id)
+	Object()
 	{
-		id_ = id;
-
 		// Initialize random engine
 		std::random_device rd;
 		std::mt19937_64 gen(rd());
@@ -31,8 +29,6 @@ public:
 		orbital_position_ += orbital_velocity_*dt;
 		orbital_position_ = fmod(orbital_position_, 2*M_PI);
 	}
-
-	int get_id() { return id_; }
 
 	std::tuple<float, float, float, std::vector< std::tuple<float, float> > > get_states()
 	{
@@ -63,9 +59,9 @@ public:
 		return std::make_tuple(x, y, Y, footprint);
 	}
 
-private:
-	int id_;
+	int id{ 0 };
 
+private:
 	float footprint_radius_;
 	float footprint_shape_;
 
