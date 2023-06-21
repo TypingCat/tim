@@ -108,3 +108,5 @@ OBU -.->|infra_markers| rviz
 RSU_0 -.->|vehicle_markers| rviz
 RSU_1 -.->|vehicle_markers| rviz
 ```
+
+![test](https://github.com/TypingCat/tim/assets/16618451/8ec0bc88-f25f-449b-b235-38c3fe5f07c9)
